@@ -164,17 +164,8 @@ basekit.addField({
         }
       }
 
-      // 获取第一个附件的信息
-      const attachment = file[0];
-      
-      if (!attachment) {
-        return {
-          code: FieldCode.InvalidArgument,
-          msg: 'Invalid attachment data. The selected attachment field contains no valid attachments.'
-        }
-      }
-
-      console.log('attachment', attachment);
+      // 处理多个附件
+      const attachments = file;
       
       // 格式化附件大小
       const formatFileSize = (bytes) => {
@@ -205,28 +196,48 @@ basekit.addField({
         return lastDot !== -1 ? filename.substring(lastDot + 1).toLowerCase() : '';
       };
       
-      console.log('Processing attachment metadata:', {
-        name: attachment.name,
-        size: attachment.size,
-        type: attachment.type,
-        tmp_url: attachment.tmp_url
+      console.log('Processing multiple attachments metadata:', {
+        count: attachments.length,
+        attachments: attachments.map(att => ({
+          name: att.name,
+          size: att.size,
+          type: att.type
+        }))
       });
 
-      const fileSizes = calculateFileSizes(attachment.size || 0);
+      // 提取各附件的名称（换行符分割）
+      const fileNames = attachments.map(att => att.name || 'Unknown attachment name').join('\n');
+      
+      // 计算总大小
+      const totalSize = attachments.reduce((sum, att) => sum + (att.size || 0), 0);
+      const totalSizes = calculateFileSizes(totalSize);
+      
+      // 提取各附件的类型（换行符分割）
+      const fileTypes = attachments.map(att => att.type || 'Unknown type').join('\n');
+      
+      // 提取各附件的扩展名（换行符分割）
+      const fileExtensions = attachments.map(att => getFileExtension(att.name || '')).join('\n');
+      
+      // 提取各附件的临时链接（换行符分割）
+      const fileUrls = attachments.map(att => att.tmp_url || '').join('\n');
+      
+      // 使用第一个附件的URL作为唯一标识，如果没有则使用时间戳
+      const firstAttachment = attachments[0];
+      const uniqueId = firstAttachment?.tmp_url || `${Date.now()}`;
 
       return {
         code: FieldCode.Success,
         data: {
-          id: attachment.tmp_url || `${Date.now()}`, // 使用URL作为唯一标识
-          fileName: attachment.name || 'Unknown attachment name',
-          fileSize: formatFileSize(attachment.size || 0),
-          fileSizeBytes: attachment.size || 0,
-          fileSizeKB: fileSizes.kb,
-          fileSizeMB: fileSizes.mb,
-          fileSizeGB: fileSizes.gb,
-          fileType: attachment.type || 'Unknown type',
-          fileExtension: getFileExtension(attachment.name || ''),
-          fileUrl: attachment.tmp_url || '',
+          id: uniqueId,
+          fileName: fileNames,
+          fileSize: formatFileSize(totalSize),
+          fileSizeBytes: totalSize,
+          fileSizeKB: totalSizes.kb,
+          fileSizeMB: totalSizes.mb,
+          fileSizeGB: totalSizes.gb,
+          fileType: fileTypes,
+          fileExtension: fileExtensions,
+          fileUrl: fileUrls,
         }
       }
     } catch (e) {
